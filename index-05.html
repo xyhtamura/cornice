@@ -72,7 +72,7 @@ Performance goals:
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Neonderthaw&family=Noto+Sans+Mono:wght@300;400;700&family=Noto+Sans:wght@400&family=Noto+Sans+JP:wght@400&family=Noto+Sans+Devanagari:wght@400&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Neonderthaw&family=Noto+Sans+Mono:wght@300;400;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-deep:   #06030f;
@@ -1351,24 +1351,47 @@ body::after {
 }
 
 /* ---------------------------------------------------------------
-   TYPOGRAPHIC MATTER
-   The grid is gridded by the cell box, not the typeface — tracks are
-   1ch of the mono font, but each cell centers its glyph independently,
-   so any face can sit in the lattice. Per-tile `script` selects a class.
---------------------------------------------------------------- */
-.f-sans { font-family: "Noto Sans", var(--font-mono); }
-.f-cjk  { font-family: "Noto Sans JP", var(--font-mono); font-size: .82em; }
-.f-dev  { font-family: "Noto Sans Devanagari", var(--font-mono); font-size: .9em; }
-.f-sym  { font-family: "Noto Sans Symbols 2", var(--font-mono); }
-
-/* ---------------------------------------------------------------
    FLOOR-FILL MATERIAL SYSTEM
-   Per-tile background + glyph-color rules are GENERATED at boot by
-   injectTileStyles() from TILE_DB (see buildDB). One shared rule per
-   tile id — no per-cell inline custom properties, no per-cell
-   color-mix resolution. Gradients are reserved for liquids and walls;
-   field fills are flat (indistinguishable at 1ch, cheaper to paint).
+   floorFill in TILE_DB turns glyph tiles into semi-solid floor matter.
 --------------------------------------------------------------- */
+
+.cell.tile-fill {
+  border-radius: 1px;
+  background:
+    color-mix(in srgb, var(--tile-bg) var(--tile-bg-strength), transparent);
+}
+
+/* water: slightly fuller */
+.cell.tile-fill[data-fill="water"] {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--tile-bg) calc(var(--tile-bg-strength) * .7), transparent),
+      color-mix(in srgb, var(--tile-bg) var(--tile-bg-strength), transparent)
+    );
+}
+
+/* tile/mall: flat architectural fill */
+.cell.tile-fill[data-fill="tile"] {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--tile-bg) var(--tile-bg-strength), transparent),
+      color-mix(in srgb, var(--tile-bg) 12%, transparent)
+    );
+}
+
+/* grass: mostly flat field */
+.cell.tile-fill[data-fill="grass"] {
+  background:
+    color-mix(in srgb, var(--tile-bg) var(--tile-bg-strength), transparent);
+}
+
+/* thicket: heavier, darker mass */
+.cell.tile-fill[data-fill="thicket"] {
+  background:
+    color-mix(in srgb, var(--tile-bg) var(--tile-bg-strength), transparent);
+}
 
 .cell[data-tile="neon_directory"],
 .cell[data-tile="payphone_relic"],
@@ -1377,14 +1400,39 @@ body::after {
   box-shadow: 0 0 6px color-mix(in srgb, currentColor 22%, transparent);
 }
 
+.cell.tile-fill[data-fill="moss-wall"] {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--tile-bg) var(--tile-bg-strength), transparent),
+      color-mix(in srgb, #35e36a 14%, transparent)
+    );
+}
+
 /* keep selected/hover readable without erasing material identity */
-.cell.tile-fill { border-radius: 1px; }
 .cell.tile-fill:hover,
 .cell.tile-fill.selected {
   outline: 1px solid rgba(232,229,47,.32);
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--tile-bg) 28%, transparent),
     0 0 8px color-mix(in srgb, var(--tile-bg) 24%, transparent);
+}
+
+.cell.tile-fill[data-fill="bruised-stone"] {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--tile-bg) var(--tile-bg-strength), transparent),
+      color-mix(in srgb, #8f5cff 18%, transparent)
+    );
+}
+
+.cell.glyph-faded {
+  color: color-mix(
+    in srgb,
+    currentColor calc(var(--glyph-opacity) * 100%),
+    transparent
+  );
 }
   </style>
 </head>
@@ -1631,11 +1679,9 @@ bruised_stone: {
     whispers:["The floor here has been slightly replaced. The original material is no longer available for loading.","A patch of non-canonical surface. Walking on it feels like a minor licensing violation.","This area was last updated in a cycle that does not appear in the changelog.","Substrate origin: unknown. Substrate state: [weather]. Notes: \u2014"]
   },
   lost_pavement: {
-    id:"lost_pavement", glyphs:["░","▒","─","┄"," "],
+    id:"lost_pavement", glyphs:["░","▒","─","┄"],
     name:"lost pavement", type:"terrain", zLayer:"floor", solid:false,
     color:"#9ba8b5", fx:"", windResponsive:false,
-    glyphOpacity:0.5,
-    floorFill:"#6b7682", floorFillStrength:"24%", floorFillMode:"tile",
     blobChance:0.12, blobCount:4, blobRadius:5, blobRadiusY:2,
     tags:["walkable","urban","palimpsest","old-city"],
     whispers:[
@@ -1711,15 +1757,16 @@ bruised_stone: {
     ]
   },
   signal_moss: {
-    id:"signal_moss", glyphs:["生","氵","茻","氺","%"],
+    id:"signal_moss", glyphs:["%","∷","⁘","⁙"],
     name:"signal moss", type:"terrain", zLayer:"floor", solid:false,
-    color:"#5effb1", fx:"", windResponsive:false, script:"cjk",
-    glyphOpacity:0.7,
+    color:"#5effb1", fx:"", windResponsive:false,
     blobChance:0.14, blobCount:3, blobRadius:3, blobRadiusY:2,
     tags:["walkable","moss","conductive","bioluminescent","receptive"],
     sound:{ scaleIndex:7, type:"sine" },
-	  floorFill:"#1f6b48",
-  floorFillStrength:"22%",
+	  floorFill:"#5effb1",
+  floorFillStrength:"18%",
+  floorFillEdge:"8%",
+  floorFillGlow:"14%",
   floorFillMode:"thicket",
     whispers:[
       "the moss has reception",
@@ -1742,11 +1789,9 @@ bruised_stone: {
     ]
   },
   sand_drift: {
-    id:"sand_drift", glyphs:["'","\u00b7","\u22c5"," "," "],
+    id:"sand_drift", glyphs:["'","\u00b7","\u22c5"," "],
     name:"sand drift", type:"terrain", zLayer:"floor", solid:false,
     color:"#c8a870", fx:"", windResponsive:true,
-    glyphOpacity:0.55,
-    floorFill:"#a8895a", floorFillStrength:"26%", floorFillMode:"tile",
     blobChance:0.20, blobCount:4, blobRadius:5, blobRadiusY:2,
     tags:["walkable","mineral","arid","wind-responsive","particulate"],
     whispers:[
@@ -1757,11 +1802,9 @@ bruised_stone: {
     ]
   },
   frost_crust: {
-    id:"frost_crust", glyphs:["*","\u22c6","\u2217"," "," "],
+    id:"frost_crust", glyphs:["*","\u22c6","\u2217"," "],
     name:"frost crust", type:"terrain", zLayer:"floor", solid:false,
     color:"#c4dff0", fx:"", windResponsive:false,
-    glyphOpacity:0.6,
-    floorFill:"#9fc4dc", floorFillStrength:"22%", floorFillMode:"tile",
     blobChance:0.10, blobCount:3, blobRadius:3, blobRadiusY:2,
     tags:["walkable","frozen","mineral","cold","crystalline"],
     whispers:[
@@ -1772,11 +1815,9 @@ bruised_stone: {
     ]
   },
   gravel_bed: {
-    id:"gravel_bed", glyphs:[".",",",";","\u00b7"," "],
+    id:"gravel_bed", glyphs:[".",",",";","\u00b7"],
     name:"gravel bed", type:"terrain", zLayer:"floor", solid:false,
     color:"#8a7e70", fx:"", windResponsive:false,
-    glyphOpacity:0.6,
-    floorFill:"#5f564b", floorFillStrength:"28%", floorFillMode:"tile",
     blobChance:0.14, blobCount:4, blobRadius:4, blobRadiusY:2,
     tags:["walkable","mineral","rough","aggregate","urban"],
     whispers:[
@@ -1795,7 +1836,9 @@ bruised_stone: {
 	 glyphOpacity:0.72,
     sound:{ scaleIndex:4, type:"sine" },
 	  floorFill:"#71ccd9",
-  floorFillStrength:"20%",
+  floorFillStrength:"5%",
+  floorFillEdge:"0%",
+  floorFillGlow:"0%",
   floorFillMode:"water",
     whispers:[
       "thin as a decision",
@@ -1865,13 +1908,14 @@ bruised_stone: {
     ]
   },
     ceramic_pool: {
-    id:"ceramic_pool", glyphs:["□","▫","▱","."," "],
+    id:"ceramic_pool", glyphs:["□","▫","▱","."],
     name:"ceramic pool tile", type:"terrain", zLayer:"floor", solid:false,
     color:"#b8f7ff", fx:"", windResponsive:false,
-    glyphOpacity:0.4,
     tags:["walkable","poolrooms","ceramic","wet","architecture"],
 	floorFill:"#b8f7ff",
   floorFillStrength:"30%",
+  floorFillEdge:"16%",
+  floorFillGlow:"10%",
   floorFillMode:"tile",
     whispers:[
       "an alternative to indoor or outdoor",
@@ -2161,7 +2205,7 @@ blobRadiusY:2,
   },
     mall_marble: {
     id:"mall_marble",
-    glyphs:["□","▧","▫","▱"," "," "],
+    glyphs:["□","▧","▫","▱"],
     name:"mall marble",
     type:"terrain",
     zLayer:"floor",
@@ -2171,6 +2215,8 @@ blobRadiusY:2,
     fx:"",
 	  floorFill:"#cac0cf",
   floorFillStrength:"40%",
+  floorFillEdge:"0%",
+  floorFillGlow:"0%",
   floorFillMode:"tile",
 	    blobChance:0.05,
     blobCount:1,
@@ -2241,6 +2287,11 @@ blobRadiusY:2,
     name:"escalator teeth",
     type:"terrain",
     zLayer:"floor",
+floorFill:"#b8b7ff",
+  floorFillStrength:"28%",
+  floorFillEdge:"18%",
+  floorFillGlow:"10%",
+  floorFillMode:"tile",
     solid:false,
     color:"#b8b7ff",
     fx:"fx-wire",
@@ -2963,60 +3014,6 @@ function buildDB() {
     const w = spec.spawnWeight ?? 2;
     for (let i = 0; i < w; i++) ENTITY_POOL.push(spec.id);
   }
-  injectTileStyles();
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// GENERATED TILE STYLES
-// One CSS rule per tile id, built once per buildDB. All cells of a
-// tile share a single computed style: no per-cell inline custom
-// properties, no per-cell color-mix. Colors are premixed in JS.
-// ═══════════════════════════════════════════════════════════════════
-function mixHex(hex, pct) {
-  // hex "#rrggbb" at pct (0–100) over transparent → rgba()
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${(pct/100).toFixed(3)})`;
-}
-function injectTileStyles() {
-  let css = "";
-  for (const spec of Object.values(TILE_DB)) {
-    const sel = `.cell[data-tile="${spec.id}"]`;
-    const decls = [];
-    // glyph color, opacity baked into alpha
-    if (spec.color?.startsWith("#") && spec.color.length === 7) {
-      decls.push(`color:${mixHex(spec.color, (spec.glyphOpacity ?? 1) * 100)}`);
-    } else if (spec.color) {
-      decls.push(`color:${spec.color}`);
-    }
-    // background matter
-    if (spec.floorFill) {
-      const s = parseFloat(spec.floorFillStrength ?? "30");
-      decls.push(`--tile-bg:${spec.floorFill}`); // hover/selected glow still reads this
-      const mode = spec.floorFillMode || "tile";
-      if (mode === "water") {
-        decls.push(`background:linear-gradient(180deg,${mixHex(spec.floorFill, s*.7)},${mixHex(spec.floorFill, s)})`);
-      } else if (mode === "moss-wall") {
-        decls.push(`background:linear-gradient(135deg,${mixHex(spec.floorFill, s)},${mixHex("#35e36a", 14)})`);
-      } else if (mode === "bruised-stone") {
-        decls.push(`background:linear-gradient(135deg,${mixHex(spec.floorFill, s)},${mixHex("#8f5cff", 18)})`);
-      } else {
-        // tile / grass / thicket / anything else: flat field
-        decls.push(`background:${mixHex(spec.floorFill, s)}`);
-      }
-    }
-    if (decls.length) css += `${sel}{${decls.join(";")}}\n`;
-    // precompute the terrain class string used by refreshCell
-    spec._cls = ` terrain ${spec.fx || ""}` +
-      (spec.script ? ` f-${spec.script}` : "") +
-      (spec.floorFill ? " tile-fill" : "");
-  }
-  let el = document.getElementById("tileStyles");
-  if (!el) {
-    el = document.createElement("style");
-    el.id = "tileStyles";
-    document.head.appendChild(el);
-  }
-  el.textContent = css;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3980,6 +3977,13 @@ function refreshCell(x, y) {
   span.style.color = "";
   span.style.opacity = "";
   span.style.filter = "";
+  span.style.removeProperty("--glyph-opacity");
+span.classList.remove("glyph-faded");
+    span.style.removeProperty("--tile-bg");
+  span.style.removeProperty("--tile-bg-strength");
+  span.style.removeProperty("--tile-bg-edge");
+  span.style.removeProperty("--tile-bg-glow");
+  span.dataset.fill = "";
   span.dataset.tile = "";
   span.dataset.glyph = "";
   if (state.selected?.x===x && state.selected?.y===y) span.classList.add("selected");
@@ -4056,9 +4060,28 @@ span.style.opacity = String(perTileOpacity.toFixed(3));
   if (cell.id==="black_water") span.textContent=spec.glyphs[(state.animTick+x+y)%spec.glyphs.length];
   else if (spec.windResponsive&&windTouches(x,y)) span.textContent=spec.glyphs[(state.animTick+x)%spec.glyphs.length];
   else span.textContent=state.terrainGlyphs[y][x];
-  span.className += spec._cls ?? ` terrain ${spec.fx||""}`;
+  span.className+=` terrain ${spec.fx||""}`;
   span.dataset.tile = cell.id;
   if (cell.id === "void_patch" || cell.id === "ferrofluid_pool" || cell.id === "oil_slick") span.dataset.glyph = span.textContent;
+span.style.setProperty("--glyph-color", spec.color);
+span.style.color = `color-mix(in srgb, var(--glyph-color) ${Math.round((spec.glyphOpacity ?? 1) * 100)}%, transparent)`;
+  
+  if (spec.glyphOpacity !== undefined) {
+  span.classList.add("glyph-faded");
+  span.style.setProperty("--glyph-opacity", spec.glyphOpacity);
+}
+  
+    if (spec.floorFill) {
+    span.classList.add("tile-fill");
+    span.style.setProperty("--tile-bg", spec.floorFill);
+    span.style.setProperty("--tile-bg-strength", spec.floorFillStrength || "30%");
+    span.style.setProperty("--tile-bg-edge", spec.floorFillEdge || "10%");
+    span.style.setProperty("--tile-bg-glow", spec.floorFillGlow || "12%");
+
+    if (spec.floorFillMode) {
+      span.dataset.fill = spec.floorFillMode;
+    }
+  }
   applyOverheadOverlay(span, x, y);
 }
 
