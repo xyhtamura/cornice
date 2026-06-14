@@ -436,6 +436,21 @@ h1 {
     .cell { position: relative; display: inline-grid; place-items: center; width: 1ch; height: calc(var(--cell) * var(--line)); cursor: crosshair; }
     /* Overhead layer — canopy_mesh, wire_vine rendered above all entities */
     .has-overhead::after { content: attr(data-ovg); position: absolute; inset: 0; display: grid; place-items: center; color: var(--ov-color, #f5d97a); opacity: 0.68; z-index: 6; pointer-events: none; }
+    /* Cover layer — terrain you stand WITHIN (grass, pools): the tile's own mark
+       redrawn over the lower body of the occupant, clipped to a bottom band.
+       z-index 5 sits ABOVE the entity glyph (player z-index:4) but BELOW the
+       overhead canopy (z-index:6). "within" is to "beneath" what wading is to passing under.
+       Higher specificity (class + attr) guarantees it wins over the generic [data-tile]::before. */
+    .cell.in-cover[data-cover]::before {
+      content: attr(data-cover);
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      color: var(--cover-color, #bfff8f);
+      opacity: var(--cover-opacity, .9);
+      clip-path: inset(var(--cover-top, 54%) 0 0 0);
+      z-index: 5; pointer-events: none;
+      text-shadow: 0 0 4px currentColor;
+    }
     .cell:hover { background: rgba(240,184,222,.1); outline: 1px solid rgba(232,229,47,.2); position: relative; z-index: 3; }
     .selected { text-shadow: 0 0 .6em currentColor; background: rgba(232,229,47,.12); outline: 1px solid rgba(232,229,47,.4); position: relative; z-index: 3; }
     .terrain  { opacity: .8; }
@@ -1399,6 +1414,7 @@ body::after {
       <div class="status-strip">
         <div class="pill-row">
           <!--<span class="pill" id="vistaPill">vista: —</span>-->
+          <span class="pill" id="rolePill">tonight: —</span>
           <span class="pill" id="weatherPill">weather: —</span>
           <span class="pill" id="seedPill">seed: —</span>
         </div>
@@ -1440,7 +1456,7 @@ body::after {
 		<button id="transferBtn" class="ghost-button" style="border-color: var(--petal);">Transfer Movement</button>
           <button id="sceneBtn" class="ghost-button">Shuffle Vista</button>
 		  <button class="ghost-button" id="themeBtn" type="button" aria-pressed="false">
-  Day Mode
+  Now: 🐀 Hour of the Rat
 </button>
           
           <button class="ghost-button" id="soundBtn">Sound On</button>
@@ -2305,7 +2321,7 @@ blobRadiusY:2,
     tags:["walkable","grass","meadow","dry","wind-responsive"],
     whispers:[
       "too much sun and not enough story",
-      "must be El Ni�o",
+      "must be El Ni�o",
       "brown blades holding down",
       "the soft color of almost given up"
     ]
@@ -2643,7 +2659,7 @@ const BASE_ENTITY_DB = {
 
 const PLAYER_SPEC = {
   id:"player", name:"you / cursor-body", type:"player", solid:false, color:"#fff26e",
-  tags:["player","camera","visitor","embodied"],
+  tags:["camera","visitor","embodied","provisional"],
   whispers:["A body small enough to read the garden one glyph at a time.","Present. Uncertain of the correct interaction model.","Moving through the terrarium at approximately one tile per decision.","You are technically a cursor. The @ sign is just a convention."]
 };
 
@@ -3049,6 +3065,7 @@ const scanMeta       = document.getElementById("scanMeta");
 const specimenLog    = document.getElementById("specimenLog");
 const specimenCountEl= document.getElementById("specimenCount");
 const seedPill       = document.getElementById("seedPill");
+const rolePill       = document.getElementById("rolePill");
 const weatherPill    = document.getElementById("weatherPill");
 <!--const vistaPill      = document.getElementById("vistaPill");-->
 const walkVolumeSlider = document.getElementById("walkVolumeSlider");
@@ -3839,6 +3856,50 @@ function placePlayer() {
   plantIsland(fallback.x, fallback.y);
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// ASSIGNED SELF — the standing figure is one role among the nocturnal ecology,
+// reassigned every world. Seeded via pick()/chance(), so the seed decides who
+// you are tonight. Grounded nocturnal-labour nouns + uncanny setting nouns;
+// grounded conditions + stranger textures. Extend freely.
+// ═══════════════════════════════════════════════════════════════════
+const ROLE_NOUNS = [
+  // grounded — the between-days night population
+  "night janitor","last-train commuter","terrace gardener","after-party straggler",
+  "maintenance crew","vending-machine restocker","noodle-cart cook","night-shift nurse",
+  "street sweeper","security guard","courier","caretaker","late tenant",
+  // uncanny / setting-appropriate
+  "spirit","program","petitioner","aspirant","breather","sleepwalker","watcher","stray","reveller"
+];
+// condition / opinion — slot A, reads first
+const ROLE_ADJ_STATE = [
+  "tired","off-duty","late","lingering","half-asleep","unhurried","provisional",
+  "discontinued","reluctant","weary","drowsy","off-the-clock","barely-clocked-in"
+];
+// texture / colour — slot B, reads second, can take an adverb
+const ROLE_ADJ_QUALITY = [
+  "luminous","rain-soft","secondhand","sodium-lit","neon-damp","static-flecked",
+  "low-signal","violet","blue","mossy","overexposed","grey-green","backlit","half-rendered"
+];
+const ROLE_ADVERBS = ["slickly","faintly","dimly","softly","barely","briefly"];
+const ROLE_HYPHEN  = ["saint","clerk","technician","pilgrim","ghost","custodian","auditor","understudy"];
+const ROLE_COLORS  = ["#2dff6e","#f0b8de","#4dfff0","#9055ff","#e8e52f","#fff26e","#ff8fce","#7be0c0","#c9a3ff"];
+
+function makeRole() {
+  const parts = [];
+  if (chance(0.72)) parts.push(pick(ROLE_ADJ_STATE));          // grounded condition, usually
+  let wantQuality = chance(0.42);                              // texture/colour, sometimes
+  const wantAdverb = chance(0.16);                             // rare adverb spice
+  if (wantAdverb) wantQuality = true;                          // adverb needs an adjective to attach to
+  if (wantQuality) {
+    const q = pick(ROLE_ADJ_QUALITY);
+    parts.push(wantAdverb ? `${pick(ROLE_ADVERBS)} ${q}` : q); // "slickly blue"
+  }
+  let noun = pick(ROLE_NOUNS);
+  if (chance(0.14)) noun = `${noun}-${pick(ROLE_HYPHEN)}`;     // "commuter-saint"
+  parts.push(noun);
+  return parts.join(" ");
+}
+
 function generateWorld() {
   buildDB();
   state.seed        = Date.now() % 1000000000;
@@ -3847,6 +3908,7 @@ function generateWorld() {
   state.selected    = null;
   state.animTick    = 0;
   state.uidCounter  = 1;
+  const priorWorld  = state.specimenTotal > 0;   // were we in a world before this reroll?
 
   randomizeRailingStructure();
  randomizeRailingStructure();
@@ -3887,23 +3949,30 @@ function generateWorld() {
   freezeTerrainGlyphs();
   placeEntities();
   placePlayer();
+  // Assign the night's role + colour to the standing figure (one role among the ecology).
+  state.player.role  = makeRole();
+  state.player.color = pick(ROLE_COLORS);
   state.controlTarget = { type: 'player', ref: state.player };
   applyWeatherTint();
   updateDronePitch();
   buildAnimatedCellSets(); // must come after terrain + overhead are final
   //updateVistaPill();
-  
-  seedPill.textContent = `${state.worldMode === "mini" ? "mini " : ""}seed: ${state.seed}`;
 
-  if (state.specimenTotal > 0) {
+  seedPill.textContent    = `seed: ${state.seed}`;
+  weatherPill.textContent = `weather: ${state.weather.name}`;
+  rolePill.textContent    = `tonight: ${state.player.role}`;
+
+  // Spawn whisper — the assigned-self claim, freshest log entry every world.
+  addSpecimen("occupancy assigned", "@", state.player.color, false,
+    `Tonight, movement begins as the ${state.player.role}.`);
+
+  // "── new world ──" divider sits ABOVE the spawn whisper, only when a prior world existed.
+  if (priorWorld) {
     const d = document.createElement("div");
     d.className = "world-divider";
     d.textContent = "\u2500\u2500 new world \u2500\u2500";
     specimenLog.prepend(d);
   }
-
-  seedPill.textContent    = `seed: ${state.seed}`;
-  weatherPill.textContent = `weather: ${state.weather.name}`;
   render();
   resetInspector();
 }
@@ -3962,6 +4031,45 @@ function applyOverheadOverlay(span, x, y) {
   span.classList.add('has-overhead');
 }
 
+// ── Cover: terrain you stand WITHIN, which closes over the lower body.
+//    `buried` = fraction of the occupant the terrain hides (≈.3 ankle/shin, ≈.6 chest).
+//    `glyph`  optional override; defaults to the tile's live mark so the material reads true.
+//    Authoring hooks, in priority order: COVER_PROFILES[id] → spec.cover → tag "liquid".
+const COVER_PROFILES = {
+  meadow_grass:    { buried:.54, glyph:"ʬ" },
+  office_thicket:  { buried:.66, glyph:"⦚" },
+  seed_head:       { buried:.48 },
+  brown_grass:     { buried:.44 },
+  ac_fern:         { buried:.50 },
+  shallow_pool:    { buried:.34 },
+  brine_puddle:    { buried:.30 },
+  ceramic_pool:    { buried:.30 },
+  chlorine_foam:   { buried:.34 },
+  black_water:     { buried:.58 },
+  ferrofluid_pool: { buried:.60, glyph:"◇" },
+  oil_slick:       { buried:.40 },
+};
+function coverProfileFor(spec) {
+  if (!spec) return null;
+  if (COVER_PROFILES[spec.id]) return COVER_PROFILES[spec.id];
+  if (spec.cover) return spec.cover;                       // per-tile authoring hook
+  if (spec.tags?.includes("liquid")) return { buried:.34 };
+  return null;
+}
+function applyCover(span, x, y) {
+  const cell = state.terrain?.[y]?.[x];
+  if (!cell || cell.id === "sky_tier") return;
+  const prof = coverProfileFor(TILE_DB[cell.id]);
+  if (!prof) return;
+  const spec  = TILE_DB[cell.id];
+  const glyph = prof.glyph || state.terrainGlyphs?.[y]?.[x] || spec.glyphs?.[0] || "\u2248";
+  span.dataset.cover = glyph;
+  span.style.setProperty('--cover-top', ((1 - (prof.buried ?? .4)) * 100).toFixed(0) + '%');
+  span.style.setProperty('--cover-color', prof.color || spec.color || '#bfff8f');
+  if (prof.opacity != null) span.style.setProperty('--cover-opacity', String(prof.opacity));
+  span.classList.add('in-cover');
+}
+
 function gridMatchesWorldSize() {
   return cellEls.length === ROWS && cellEls[0]?.length === COLS;
 }
@@ -3980,12 +4088,19 @@ function refreshCell(x, y) {
   span.style.color = "";
   span.style.opacity = "";
   span.style.filter = "";
+  span.style.textShadow = "";
   span.dataset.tile = "";
   span.dataset.glyph = "";
+  span.dataset.cover = "";
   if (state.selected?.x===x && state.selected?.y===y) span.classList.add("selected");
 
   if (state.player.x===x && state.player.y===y) {
     span.textContent="@"; span.classList.add("player");
+    if (state.player.color) {                       // role colour: @ becomes one glow among many
+      span.style.color = state.player.color;
+      span.style.textShadow = `0 0 4px ${state.player.color}, 0 0 16px ${state.player.color}`;
+    }
+    applyCover(span, x, y);
     applyOverheadOverlay(span, x, y);
     return;
   }
@@ -3999,6 +4114,7 @@ if (ent) {
     if (state.controlTarget.ref === ent) {
       span.style.textShadow = "0 0 6px currentColor";
     }
+    applyCover(span, x, y);
     applyOverheadOverlay(span, x, y);
     return;
   }
@@ -4016,6 +4132,7 @@ if (ent) {
   span.className += ` entity ${spec.fx || ""}`; 
   span.style.color = spec.color;
   
+  applyCover(span, x, y);
   applyOverheadOverlay(span, x, y);
   return;
 }
@@ -4059,6 +4176,9 @@ span.style.opacity = String(perTileOpacity.toFixed(3));
   span.className += spec._cls ?? ` terrain ${spec.fx||""}`;
   span.dataset.tile = cell.id;
   if (cell.id === "void_patch" || cell.id === "ferrofluid_pool" || cell.id === "oil_slick") span.dataset.glyph = span.textContent;
+  if (cell.residue) {                                   // occupancy residue: faint ghost-glow of the self that was here
+    span.style.filter = `drop-shadow(0 0 3px ${cell.residue}66)`;
+  }
   applyOverheadOverlay(span, x, y);
 }
 
@@ -4299,11 +4419,12 @@ function renderScannerLayer(layer, x, y) {
   setTimeout(() => scanCard.classList.remove("scan-active"), 480);
 
   if (layer.type === 'player') {
-    scanName.textContent = PLAYER_SPEC.name;
-    scanText.textContent = pickNative(PLAYER_SPEC.whispers);
+    const role = state.player.role || PLAYER_SPEC.name;
+    scanName.textContent = role;          // body reads as its assigned role, no description
+    scanText.textContent = "";
     scanMeta.innerHTML = "";
     PLAYER_SPEC.tags.forEach(t => { const s = document.createElement("span"); s.className = "tag"; s.textContent = t; scanMeta.appendChild(s); });
-    addSpecimen(PLAYER_SPEC.name, "@", "#fff26e");
+    addSpecimen(role, "@", state.player.color || "#fff26e");
     if (state.soundOn) playTone({ sound:{ scaleIndex:6, type:"sine" } }, 0.4);
     return;
   }
@@ -4353,6 +4474,7 @@ function renderScannerLayer(layer, x, y) {
     cell.historyTags.push(state.animTick);
     let whisper = pickNative(spec.whispers || ["Quiet architecture."]);
     whisper = whisper.replace("[weather]", state.weather?.name ?? "\u2014");
+    if (cell.residue) whisper += "  \u2014 prior occupancy logged here, since vacated.";
     scanName.textContent = (isRevisit ? `${spec.name} \u21a9` : spec.name) + `\u00a0[${x},${y}]`;
     scanText.textContent = whisper;
     scanMeta.innerHTML = "";
@@ -4481,6 +4603,12 @@ function finalizeTransferSelection(previousControl = null) {
         }
       }
       
+      // RESIDUE — occupancy withdrawn: the ground keeps the mark of the self installed here.
+      // Ground-level only; mist over the un-enterable city leaves nothing.
+      if (inBounds(releasedObj.x, releasedObj.y) && !isSky(releasedObj.x, releasedObj.y)) {
+        state.terrain[releasedObj.y][releasedObj.x].residue = state.player.color || "#cfe8d2";
+      }
+
       // Strip the proxy instance out of the active creatures array completely
       state.entities = state.entities.filter(ent => ent !== releasedObj);
       refreshCell(releasedObj.x, releasedObj.y);
@@ -4542,7 +4670,7 @@ window.inspectAt = function(x, y) {
 
 function getLayerDisplayName(layer, x, y) {
   if (!layer) return "?";
-  if (layer.type === 'player')   return "player";
+  if (layer.type === 'player')   return "@";
   if (layer.type === 'sky')      return getSceneForCell(x, y)?.name?.toLowerCase() ?? "vista";
   if (layer.type === 'overhead') return (TILE_DB[layer.ov.id]?.name ?? "overhead") + " \u2191";
   if (layer.type === 'entity')   return ENTITY_DB[layer.ent.id]?.name ?? "entity";
@@ -4556,7 +4684,7 @@ function executeTransferFor(x, y, layer) {
 
   if (layer.type === 'player' || (x === state.player.x && y === state.player.y)) {
     state.controlTarget = { type:'player', ref:state.player };
-    addSpecimen("control returned", "@", "#fff26e", false, "System focus bound back to player body.");
+    addSpecimen(state.player.role || "standing figure", "@", state.player.color || "#fff26e");
     finalizeTransferSelection(previousControl);
     return;
   }
@@ -4568,18 +4696,18 @@ function executeTransferFor(x, y, layer) {
         phase:Math.random(), isTileClone:true, color:"#cfe8d2", glyph:span.textContent };
       state.entities.push(clone);
       state.controlTarget = { type:'cloud', ref:clone };
-      addSpecimen("captured vapor", clone.glyph, "#4dfff0", false, "Possessed drifting mist. Bound to scenic vista layer.");
+      addSpecimen("occupancy: drifting mist", clone.glyph, "#4dfff0", false, "Movement carries into the mist above the city. The deck is left behind.");
       finalizeTransferSelection(previousControl);
       return;
     }
-    addSpecimen("transfer failure", "\u22e0", "#ff42a0", false, "Cannot shift control to raw background space. Target a cloud layer.");
+    addSpecimen("no occupancy", "\u22e0", "#ff42a0", false, "Nothing to move into here \u2014 only the drifting mist over the city can be entered.");
     finalizeTransferSelection();
     return;
   }
   if (layer.type === 'entity') {
     const spec = ENTITY_DB[layer.ent.id];
     state.controlTarget = { type:'entity', ref:layer.ent };
-    addSpecimen("possessed entity", spec.glyphs[0], spec.color, false, `Now driving ${spec.name}.`);
+    addSpecimen("occupancy reassigned", spec.glyphs[0], spec.color, false, `The ${spec.name} carries the movement now.`);
     finalizeTransferSelection(previousControl);
     return;
   }
@@ -4589,7 +4717,7 @@ function executeTransferFor(x, y, layer) {
       phase:Math.random(), isTileClone:true, color:ovSpec.color||"#f5d97a", glyph:ovSpec.glyphs[0] };
     state.entities.push(clone);
     state.controlTarget = { type:'tile', ref:clone };
-    addSpecimen("overhead clone", clone.glyph, clone.color, false, `Proxy of ${ovSpec.name} (overhead layer).`);
+    addSpecimen("occupancy reassigned", clone.glyph, clone.color, false, `The ${ovSpec.name} carries the movement now, up in the overhead channel.`);
     finalizeTransferSelection(previousControl);
     return;
   }
@@ -4600,88 +4728,12 @@ function executeTransferFor(x, y, layer) {
       phase:Math.random(), isTileClone:true, color:tileSpec.color||"#cfe8d2", glyph:tileSpec.glyphs[0] };
     state.entities.push(clone);
     state.controlTarget = { type:'tile', ref:clone };
-    addSpecimen("cloned phantom tile", clone.glyph, clone.color, false, "Constructed floating tile proxy.");
+    addSpecimen("occupancy: ground", clone.glyph, clone.color, false, "Movement settles into the ground. Where a self has been, the ground keeps the mark.");
     finalizeTransferSelection(previousControl);
     return;
   }
 }
 
-function handleTransferTargetSelection(x, y) {
-  const previousControl = state.controlTarget;
-
-  // Rule 5: Return control back to player
-  if (x === state.player.x && y === state.player.y) {
-    state.controlTarget = { type: 'player', ref: state.player };
-    addSpecimen("control returned", "@", "#fff26e", false, "System focus bound back to player body.");
-    finalizeTransferSelection(previousControl);
-    return;
-  }
-
-  // Check if a cloud is present at the clicked cell location
-  const span = cellEls[y]?.[x];
-  const isCloudGlyph = span && (span.textContent === "\u2591" || span.textContent === "\u2592" || span.textContent === "\u25cc" || span.textContent === "\u25cb");
-
-  // Rule 4: If a cloud is clicked, initialize it with a distinct 'cloud' control type
-  if (isCloudGlyph) {
-    const cloneEntity = {
-      uid: state.uidCounter++,
-      id: "drifting_cloud",
-      x: x,
-      y: y,
-      glyphIndex: 0,
-      phase: Math.random(),
-      isTileClone: true, // Reuses renderer overlay bypass
-      color: "#cfe8d2",
-      glyph: span.textContent
-    };
-
-    state.entities.push(cloneEntity);
-    state.controlTarget = { type: 'cloud', ref: cloneEntity }; // Explicit cloud type
-    
-    addSpecimen("captured vapor", cloneEntity.glyph, "#4dfff0", false, "Possessed drifting mist. Bound strictly to scenic vista layer.");
-    finalizeTransferSelection(previousControl);
-    return;
-  }
-
-  // Rule 3: Reject non-cloud distant scene landscape clicks
-  if (state.terrain[y][x].id === "sky_tier" || isSky(x, y)) {
-    addSpecimen("transfer failure", "\u22e0", "#ff42a0", false, "Cannot shift control to raw background space. Target a cloud layer.");
-    finalizeTransferSelection();
-    return;
-  }
-
-  // Rule 1: Handle standard Entity selection
-  const targetEntity = state.entities.find(e => e.x === x && e.y === y);
-  if (targetEntity) {
-    state.controlTarget = { type: 'entity', ref: targetEntity };
-    const spec = ENTITY_DB[targetEntity.id];
-    addSpecimen("possessed entity", spec.glyphs[0], spec.color, false, `Now driving ${spec.name}.`);
-    finalizeTransferSelection(previousControl);
-    return;
-  }
-
-  // Rule 2: Handle standard Tile Cloning creation
-  const underlyingTile = state.terrain[y][x];
-  const tileSpec = TILE_DB[underlyingTile.id] || TILE_DB.damp_soil;
-  
-  const cloneEntity = {
-    uid: state.uidCounter++,
-    id: underlyingTile.id,
-    x: x,
-    y: y,
-    glyphIndex: 0,
-    phase: Math.random(),
-    isTileClone: true,
-    color: tileSpec.color || "#cfe8d2",
-    glyph: tileSpec.glyphs[0]
-  };
-
-  state.entities.push(cloneEntity);
-  state.controlTarget = { type: 'tile', ref: cloneEntity };
-  
-  addSpecimen("cloned phantom tile", cloneEntity.glyph, cloneEntity.color, false, `Constructed floating tile proxy.`);
-  finalizeTransferSelection(previousControl);
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // EVENT LISTENERS
@@ -4806,7 +4858,7 @@ function applyTheme(theme) {
 
   document.body.classList.toggle("theme-day", isDay);
 
-  themeBtn.textContent = isDay ? "Night Mode" : "Day Mode";
+  themeBtn.textContent = isDay ? "Now: 🐎 Hour of the Horse" : "Now: 🐀 Hour of the Rat";
   themeBtn.setAttribute("aria-pressed", String(isDay));
   saveThemePreference(isDay ? "day" : "night");
 }
