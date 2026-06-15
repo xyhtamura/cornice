@@ -83,8 +83,8 @@ Performance goals:
       --frost:     #4dfff0;
       --bruise:    #9055ff;
       --ink:       #cfe8d2;
-      --cell:      clamp(12px, 1.5vw, 16px);
-      --line:      1.06;
+--cell: clamp(10px, min(1.5vw, 2.6vh), 16px); 
+  --line: 1.06;
       --font-mono: "Noto Sans Mono","Cascadia Code","JetBrains Mono","Iosevka Term",
                    "Space Mono",SFMono-Regular,Consolas,monospace;
       --weather-tint:  #2dff6e;
@@ -230,7 +230,7 @@ body.theme-day #themeBtn {
         radial-gradient(ellipse at 48% 54%, rgba(232,183,218,.04), transparent 34rem),
         linear-gradient(145deg, var(--bg-deep), var(--bg-mid) 55%, #120518);
       font-family: var(--font-mono);
-      overflow-x: hidden;
+      overflow-x: hidden;          /* vertical page scroll stays available so nothing is unreachable */
     }
 
     /* ── Global overlays ── */
@@ -258,16 +258,18 @@ body.theme-day #themeBtn {
     }
 
     /* ── Layout shell ── */
-    .shell {
-      width: min(940px, calc(100vw - 18px));
-      min-height: 100vh;
-      margin: 0 auto;
-      padding: 14px 0 18px;
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      gap: 10px;
-    }
-	
+.shell {
+  width: min(940px, calc(100vw - 18px));
+  min-height: 100svh;      /* fallback for browsers without dvh */
+  min-height: 100dvh;      /* fills the screen on load... */
+  margin: 0 auto;
+  padding: clamp(4px, 1vh, 10px) 0;
+  display: grid;
+  grid-template-rows: auto 1fr;   /* header, main — the byline now lives inside the panel */
+  gap: clamp(3px, 1vh, 8px);
+  /* ...but no hard clip: if content ever exceeds the viewport the page just scrolls */
+}
+
 	@media (max-width: 840px) {
   :root {
     /* Dynamically distribute 52 characters perfectly inside 95% of any mobile viewport */
@@ -307,7 +309,8 @@ body.theme-day #themeBtn {
 
 h1 {
   font-family: "Neonderthaw", var(--font-mono);
-  font-size: clamp(50px, 3.9vw, 38px);
+  font-size: clamp(38px, 3.9vw, 50px);
+
   letter-spacing: -0.08em;
   line-height: .82;
   color: transparent;
@@ -382,6 +385,7 @@ h1 {
       position: relative; overflow: hidden; padding: 13px;
       min-height: 360px; display: grid; place-items: center;
       border-color: rgba(207,232,210,.16);
+
       box-shadow:
         0 0 0 4px rgba(4,1,10,.96),
         0 0 0 5px rgba(207,232,210,.1),
@@ -542,6 +546,58 @@ h1 {
     /* ── Controls ── */
     .controls { display: grid; gap: 6px; }
 
+    /* ── Unified shuffle cluster — one shape, three actions ──
+       Shuffle sits on top at full width; Mini / Vista split the row
+       beneath it, hairline-divided, the whole group sharing a single
+       octagonal silhouette so it reads as one control with settings. */
+    .shuffle-cluster {
+      display: grid;
+      grid-template-rows: auto auto;
+      border: 1px solid rgba(232,229,47,.22);
+      border-radius: 11px;
+      overflow: hidden;
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+      box-shadow: 0 6px 20px rgba(45,255,110,.12), inset 0 0 14px rgba(255,255,255,.04);
+    }
+    /* primary keeps the bright filled gradient from `button`; just drop its own shape */
+    .shuffle-main {
+      border-radius: 0;
+      clip-path: none;
+      box-shadow: none;
+    }
+    .shuffle-main:hover { transform: none; }   /* group stays put — no per-button lift */
+    .shuffle-sub {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid rgba(4,8,5,.55);
+    }
+    .shuffle-seg {
+      border-radius: 0;
+      clip-path: none;
+      box-shadow: none;
+      color: #c8dcc0;
+      background: rgba(207,232,210,.05);
+      font-weight: 700;
+      font-size: 10.5px;
+      letter-spacing: .06em;
+      padding: 7px 10px;
+    }
+    .shuffle-seg + .shuffle-seg { border-left: 1px solid rgba(207,232,210,.16); }
+    .shuffle-seg:hover  { background: rgba(207,232,210,.11); transform: none; filter: none; }
+    .shuffle-main:active, .shuffle-seg:active { transform: translateY(1px) scale(.997); }
+
+    /* ── Byline, tucked into the panel's bottom-right ── */
+    .panel-credit {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(207,232,210,.12);
+    }
+
     button {
       font: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: .04em;
       color: #120820; border: 0; cursor: pointer;
@@ -606,7 +662,7 @@ h1 {
     }
 
     /* ── Footer ── */
-    footer { padding: 9px 14px; color: #687866; font-size: 10.5px; line-height: 1.6; }
+    footer { padding: 5px 12px; color: #687866; font-size: 9.5px; line-height: 1.25; }
     code   { color: var(--petal); background: rgba(240,184,222,.07); border-radius: 2px; padding: 1px 4px; }
 
     /* ── Keyframes ── */
@@ -1253,12 +1309,19 @@ h1 {
   main {
     grid-template-columns: 1fr;
     gap: 8px;
+	min-height: 0;
   }
   
   .panel {
     grid-template-rows: auto auto auto auto; /* Prevents text elements from collapsing */
     padding: 10px;
   }
+
+
+.world-wrap,
+.panel {
+  min-height: 0;
+}
 
   .scan-card {
     min-height: 110px; /* Reduces footprint on mobile screens */
@@ -1401,6 +1464,124 @@ body::after {
     inset 0 0 0 1px color-mix(in srgb, var(--tile-bg) 28%, transparent),
     0 0 8px color-mix(in srgb, var(--tile-bg) 24%, transparent);
 }
+/* ░░ ABOUT THE CREATOR — ornate type-frame modal ░░ */
+.creator-footer{ display:flex; align-items:center; justify-content:center; gap:.55rem; flex-wrap:wrap; }
+.creator-byline{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.14em; text-transform:lowercase; color:#687866; }
+.creator-name {
+
+  font-size:10.5px;
+  
+  background: none; 
+  padding: 0; /* Removed padding */
+  cursor: pointer; 
+  color: transparent;
+  background-image: linear-gradient(92deg, var(--petal), var(--mold) 50%, var(--frost) 76%, var(--bruise));
+  -webkit-background-clip: text; 
+  background-clip: text;
+  transition: filter .2s;
+  border-radius: 0;
+  
+  /* Reset global button styles */
+  box-shadow: none;
+  clip-path: none;
+  transform: none;
+}
+
+.creator-name:hover { 
+  filter: brightness(1.3) drop-shadow(0 0 7px color-mix(in srgb, var(--frost) 55%, transparent));
+  transform: none; 
+}
+
+.creator-name:active {
+  transform: none;
+}
+.creator-link{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; color:var(--frost); text-decoration:none; opacity:.78; }
+.creator-link:hover{ opacity:1; text-decoration:underline; }
+
+.about-overlay{
+  position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;
+  padding:5vh 4vw; background:radial-gradient(circle at 50% 38%, rgba(6,3,15,.72), rgba(6,3,15,.95));
+  -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
+  opacity:0; transition:opacity .24s ease;
+}
+.about-overlay.open{ opacity:1; }
+.about-overlay[hidden]{ display:none; }
+.about-window {
+  position: relative; 
+  width: min(470px, 92vw); 
+  max-height: 90vh; 
+  /* Removed overflow-y: auto to ban scrollbars; the ornate corners will no longer clip */
+  background: linear-gradient(165deg, var(--bg-deep), var(--bg-mid));
+  border: 2px double var(--mold);
+  box-shadow: 0 0 0 4px rgba(6,3,15,.92), 0 0 26px color-mix(in srgb, var(--mold) 38%, transparent), inset 0 0 46px rgba(0,0,0,.55);
+  padding: clamp(1.2rem, 4vh, 2.5rem) clamp(1rem, 3vw, 1.8rem) clamp(1rem, 3vh, 1.5rem); 
+  text-align: center;
+  transform: translateY(10px) scale(.97); 
+  transition: transform .26s cubic-bezier(.2,.9,.3,1);
+}
+.about-overlay.open .about-window{ transform:none; }
+.about-corner{
+  position:absolute; font-family:"Noto Sans Symbols 2", var(--font-mono); font-size:1.15rem; line-height:1;
+  color:var(--petal); text-shadow:0 0 9px color-mix(in srgb, var(--petal) 55%, transparent); pointer-events:none;
+}
+.about-corner.tl{ top:-.72rem; left:-.55rem; } .about-corner.tr{ top:-.72rem; right:-.55rem; }
+.about-corner.bl{ bottom:-.72rem; left:-.55rem; } .about-corner.br{ bottom:-.72rem; right:-.55rem; }
+.about-cartouche{
+  position:absolute; top:-.8rem; left:50%; transform:translateX(-50%); white-space:nowrap;
+  padding:0 .65rem; background:var(--bg-deep);
+  font-family:var(--font-mono); font-size:.7rem; letter-spacing:.2em; text-transform:lowercase; color:var(--frost);
+}
+.about-cartouche .orn{ font-family:"Noto Sans Symbols 2", var(--font-mono); color:var(--petal); }
+.about-close{
+  position:absolute; top:.45rem; right:.6rem; background:none; border:0; cursor:pointer;
+  font-family:var(--font-mono); font-size:1.35rem; line-height:1; color:var(--ink); opacity:.55; transition:.15s;
+}
+.about-close:hover{ opacity:1; color:var(--petal); }
+.about-portrait{
+  position:relative; width:118px; height:118px; margin:.3rem auto 1rem; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--mold); background:rgba(255,255,255,.03);
+  box-shadow:0 0 15px color-mix(in srgb, var(--mold) 28%, transparent);
+}
+.about-portrait img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.about-portrait img.missing{ display:none; }
+.about-portrait-glyph{ font-family:"Noto Sans JP", var(--font-mono); font-size:3.3rem; color:var(--ink); opacity:.45; }
+.about-name{
+  margin:0; font-family:"Neonderthaw", var(--font-mono); font-weight:400; line-height:.95; font-size:2.7rem; color:transparent;
+  background:linear-gradient(92deg, var(--petal) 0%, #ff42a0 14%, var(--acid) 32%, var(--mold) 54%, var(--frost) 70%, var(--bruise) 86%, var(--petal) 100%);
+  -webkit-background-clip:text; background-clip:text;
+}
+.about-othernames{ font-family:"Noto Sans JP", var(--font-mono); font-size:.82rem; letter-spacing:.04em; color:color-mix(in srgb, var(--ink) 70%, transparent); margin:.35rem 0 1rem; }
+.about-bio{ font-family:var(--font-mono); font-size:.86rem; line-height:1.55; color:var(--ink); max-width:40ch; margin:0 auto; text-align:left; }
+.about-links{ display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center; margin-top:1.2rem; }
+.about-links a{
+  font-family:var(--font-mono); font-size:.72rem; letter-spacing:.05em; text-decoration:none; padding:.3rem .72rem;
+  color:var(--ink); border:1px solid color-mix(in srgb, var(--frost) 42%, transparent); transition:.15s;
+}
+.about-links a:hover{ color:var(--bg-deep); background:var(--frost); border-color:var(--frost); }
+.about-flourish{ margin-top:1.15rem; font-family:"Noto Sans Symbols 2", var(--font-mono); font-size:.95rem; letter-spacing:.45em; color:var(--bruise); opacity:.75; }
+@media (prefers-reduced-motion: reduce){ .about-overlay,.about-window{ transition:none; } }
+
+.inline-text-button {
+  /* Remove default button styling */
+  all: unset;
+  
+  /* Make it behave like text within the flow */
+  display: inline;
+  cursor: pointer;
+  
+  /* Inherit fonts and colors from the parent container */
+  font: inherit;
+  color: inherit;
+  
+  /* Ensure it remains accessible (e.g., re-enable focus outline) */
+  outline: revert;
+}
+
+/* Optional: Add hover effects to show it's interactive */
+.inline-text-button:hover {
+  text-decoration: underline;
+}
   </style>
 </head>
 <body>
@@ -1451,14 +1632,17 @@ body::after {
           <div class="specimen-log" id="specimenLog"></div>
         </section>
         <div class="controls">
-		<button id="rerollBtn" >Shuffle</button>
-		<button id="miniBtn" class="ghost-button">Shuffle Mini</button>
-		<button id="transferBtn" class="ghost-button" style="border-color: var(--petal);">Transfer Movement</button>
-          <button id="sceneBtn" class="ghost-button">Shuffle Vista</button>
-		  <button class="ghost-button" id="themeBtn" type="button" aria-pressed="false">
-  Now: 🐀 Hour of the Rat
-</button>
-          
+          <div class="shuffle-cluster">
+            <button id="rerollBtn" class="shuffle-main">Shuffle</button>
+            <div class="shuffle-sub">
+              <button id="miniBtn" class="shuffle-seg">Mini</button>
+              <button id="sceneBtn" class="shuffle-seg">Vista</button>
+            </div>
+          </div>
+          <button id="transferBtn" class="ghost-button" style="border-color: var(--petal);">Transfer Movement</button>
+          <button class="ghost-button" id="themeBtn" type="button" aria-pressed="false">
+            Now: 🐀 Hour of the Rat
+          </button>
           <button class="ghost-button" id="soundBtn">Sound On</button>
         </div>
           <div class="vol-container">
@@ -1473,15 +1657,60 @@ body::after {
               <span class="vol-val" id="droneVolVal">45%</span>
             </div>
           </div>
-        </div>
+          <div class="panel-credit">
+            <span class="creator-byline">tended by</span>
+            <span id="aboutTrigger" class="creator-name">xyh</span>
+            <a class="creator-link" href="https://xyhtamura.github.io" target="_blank" rel="noopener">github ↗</a>
+          </div>
       </aside>
     </main>
-
-    <footer>
-      <code>Night Terrarium v3.</code>
-      Pack API: <code>window.NightTerrarium.registerPack({ tiles, entities, scenes, weather, biomes })</code>
-    </footer>
   </div>
+
+  <!-- ░░ ABOUT THE CREATOR ░░ -->
+  <div id="aboutOverlay" class="about-overlay" hidden>
+    <div class="about-window" role="dialog" aria-modal="true" aria-labelledby="aboutHeading">
+      <span class="about-corner tl">❦</span><span class="about-corner tr">❦</span>
+      <span class="about-corner bl">❦</span><span class="about-corner br">❦</span>
+      <div class="about-cartouche"><span class="orn">❧</span>&nbsp;&nbsp;about the creator&nbsp;&nbsp;<span class="orn">❧</span></div>
+      <button type="button" class="about-close" id="aboutClose" aria-label="close">×</button>
+
+      <div class="about-portrait">
+        <img src="xyh01.jpg" alt="xyh tamura" onerror="this.classList.add('missing')">
+        <span class="about-portrait-glyph">再</span>
+      </div>
+      <h2 id="aboutHeading" class="about-name">xyh tamura</h2>
+      <div class="about-othernames">Cy Tamura&nbsp;·&nbsp;Cye Tamura&nbsp;·&nbsp;田村再</div>
+      <p class="about-bio">xyh tamura is a Filipino/Ilonggo-Japanese artist-researcher working across intermedia, electronic literature, music, and ludic experiences. Cornice extends a preoccupation with selfhood, posthuman relations, and ecological-technological worlds. Here is an urban liminal time where the built and the grown were never cleanly parted, attended to from a post-cyberpunk terrace.</p>
+      <nav class="about-links" aria-label="creator links">
+        <a href="https://xyhtamura.github.io" target="_blank" rel="noopener">site</a>
+       <a href="https://www.instagram.com/xyh.tamura/" target="_blank" rel="noopener">instagram</a>
+        <a href="mailto:xyhtamura0@gmail.com">email</a>
+      </nav>
+      <div class="about-flourish">✦&nbsp;&nbsp;⁘&nbsp;&nbsp;✦</div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    const overlay = document.getElementById('aboutOverlay');
+    if(!overlay) return;
+    let lastFocus = null;
+    const open = () => {
+      lastFocus = document.activeElement;
+      overlay.hidden = false;
+      requestAnimationFrame(() => overlay.classList.add('open'));
+      document.getElementById('aboutClose')?.focus();
+    };
+    const close = () => {
+      overlay.classList.remove('open');
+      setTimeout(() => { overlay.hidden = true; lastFocus?.focus?.(); }, 260);
+    };
+    document.getElementById('aboutTrigger')?.addEventListener('click', open);
+    document.getElementById('aboutClose')?.addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !overlay.hidden) close(); });
+  })();
+  </script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
