@@ -1532,11 +1532,77 @@ body::after {
   font-family:var(--font-mono); font-size:.7rem; letter-spacing:.2em; text-transform:lowercase; color:var(--frost);
 }
 .about-cartouche .orn{ font-family:"Noto Sans Symbols 2", var(--font-mono); color:var(--petal); }
-.about-close{
-  position:absolute; top:.45rem; right:.6rem; background:none; border:0; cursor:pointer;
-  font-family:var(--font-mono); font-size:1.35rem; line-height:1; color:var(--ink); opacity:.55; transition:.15s;
+.about-close {
+  position: absolute;
+  top: .5rem;
+  right: .7rem;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  clip-path: none;
+  border-radius: 0;
+  outline: none;
+
+  padding: .1rem .2rem;
+  font-family: "Noto Sans Symbols 2", var(--font-mono);
+  font-size: 1.15rem;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: 0;
+
+  color: var(--petal);
+  background: none;
+  border: 0;
+  box-shadow: none;
+  clip-path: none;
+  border-radius: 0;
+
+  opacity: .62;
+  cursor: pointer;
+  text-shadow:
+    0 0 7px color-mix(in srgb, var(--petal) 45%, transparent),
+    0 0 14px color-mix(in srgb, var(--bruise) 24%, transparent);
+
+  transform: none;
+  filter: none;
+  transition:
+    opacity .15s ease,
+    color .15s ease,
+    text-shadow .15s ease,
+    transform .15s ease;
 }
-.about-close:hover{ opacity:1; color:var(--petal); }
+
+.about-close::before,
+.about-close::after {
+  content: "·";
+  color: var(--frost);
+  opacity: .55;
+}
+
+.about-close::before {
+  margin-right: .14rem;
+}
+
+.about-close::after {
+  margin-left: .14rem;
+}
+
+.about-close:hover {
+  opacity: 1;
+  color: var(--frost);
+  text-shadow:
+    0 0 8px color-mix(in srgb, var(--frost) 58%, transparent),
+    0 0 18px color-mix(in srgb, var(--petal) 36%, transparent);
+  transform: none;
+  filter: none;
+}
+
+
+
 .about-portrait{
   position:relative; width:118px; height:118px; margin:.3rem auto 1rem; overflow:hidden;
   display:flex; align-items:center; justify-content:center;
